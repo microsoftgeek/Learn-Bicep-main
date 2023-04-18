@@ -1,0 +1,26 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "azureRegion": {
+        "value": "westus2"
+      },
+      "resourceGroupName": {
+        "value":  "rg-demo-vm-1116"  
+      },
+      "appResourceGroupName": {
+        "value": "rg-demo-app-1116"
+      },
+      "userName": {
+        "value": "PowerUser"
+      },
+      "secretPass": {
+        "reference": {
+          "keyVault": {
+            "id": "/subscriptions/{your-subscriptionId}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{keyvault-name}"
+          },
+          "secretName": "VMPassword"
+        }
+      }
+    }
+  }

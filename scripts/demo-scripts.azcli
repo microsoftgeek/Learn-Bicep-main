@@ -1,0 +1,85 @@
+# Login to Azure
+az login --use-device-code
+az account show --query name
+
+# List all RG names
+az group list -o table
+
+# Build JSON output with a different file name
+az bicep build --file .\1-deploy-rg.bicep --outfile azure-storage-deploy.json
+
+# Pre-flight checks before deployment into SUBSCRIPTION
+az deployment sub what-if --location eastus2 --template-file .\1-deploy-rg.bicep
+
+# Pre-flight checks before creation / deployment
+az deployment sub create --location eastus2 --template-file .\1-deploy-rg.bicep -c
+
+
+# Storage account deployment to Resource-Group with pre-flight check
+az group create -l eastus -g 'rg-BackToSchool'
+az deployment group create -g 'rg-BackToSchool' -f .\modules\storage.bicep -c
+az storage account list --query [].name -o table
+
+# Deploy storage account from RG
+az group create -l eastus -g 'rg-cll-session-demo'
+az deployment group create -g 'rg-cll-session-demo' -f .\modules\storage.bicep -c 
+
+# Remove deployed storage account
+az storage account delete --name 'stgbacktoschool942021' --resource-group 'rg-BackToSchool'
+
+# Redeploy RG+Resources with parametrized storage into subscription
+az deployment sub create --location eastus2 --template-file .\2-deploy-param-storage.bicep -c
+
+# List all RG names & storage accounts
+az group list -o table
+az storage account list --query [].name -o table
+
+# Delete last deployment RG
+az group delete --resource-group 'rg-BackToSchool-2' -y
+
+# Deploy RG with parametrized storage that has a Lock
+az deployment sub create --location eastus2 --template-file .\3-deploy-storage-w-Lock.bicep -c
+
+# Try to delete 'rg-BackToSchool-3' - it should FAIL due to lock
+az group delete --resource-group 'rg-BackToSchool-3' -y
+
+# Deploy Allowed locations Policy
+az deployment sub create --location eastus2 --template-file .\samples\4-deploy-sub-policy.bicep -c
+
+# Deploy RG with parametrized storage to 'westeurope' - should fail when Policy in effect
+az deployment sub create --location westeurope --template-file .\5-deploy-fail.bicep -c
+
+# Change the location to 'eastus' & re-try the deployment of 5-deploy.bicep => Should succeed
+az deployment sub create --location eastus --template-file .\5-deploy-fail.bicep -c
+
+az group delete --resource-group 'rg-BackToSchool-5' -y
+az group delete --resource-group 'rg-BackToSchool-3' -y
+
+# VM Deployment of 6-deploy-vm.bicep => Should succeed
+az deployment sub create --location eastus --template-file .\6-deploy-vm.bicep -c
+
+# Deploy Firewall with ip prefix and parameter file 
+az group create -l eastus -g 'rg-BackToSchool-8'
+az deployment group create -g 'rg-BackToSchool-8' -f .\samples\8-deploy-firewall-w-ip-prefix.bicep -p .\param-files\8-deploy-firewall-w-ip-prefix.parameters.dev.json  -c
+
+# Decompile app-service.json into Bicep code @ arm-json-samples
+az bicep decompile -f .\arm-json-samples\app-service.json
+
+# Create group and deploy a DECOMPILED app-service.bicep
+az group create -n 'rg-web-app' -l 'eastus'
+az deployment group create -g 'rg-web-app' -f .\app-service.bicep -c
+az group delete -n 'rg-web-app'
+
+# Module deployments of 7-deploy-modules-w-param.bicep iwth param file 7-deploy-modules-w-param.dev.json
+az deployment sub create --location eastus -f .\samples\7-deploy-modules-w-param.bicep -p .\param-files\7-deploy-modules-w-param.dev.json -c
+
+# Deploy storage with a container
+az deployment group create -g 'BicepTest-RG' -f .\modules\storage-w-containers.bicep -c
+
+# Deploy the 6-deploy-vm.bicep with its parameter file (w reference to KeyVault secret)
+az deployment sub create -l westus2 -f .\samples\6-deploy-vm.bicep -p .\param-files\6-deploy-modules-w-param.dev.json
+
+# Helpful troubleshooting references
+# https://docs.microsoft.com/en-us/answers/questions/340510/arm-templates-storageaccountsfileservices-error-34.html
+# https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/file
+# https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/best-practices
